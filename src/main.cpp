@@ -11,15 +11,18 @@
 #include "server.h"
 #include "tcp.h"
 #include "test.h"
-#include <bits/getopt_core.h>
+#include "udp.h"
 #include <fmt/core.h>
 #include <condition_variable>
+#include <csignal>
 #include <cstdio>
 #include <exception>
 #include <memory>
 #include <stdexcept>
 #include <thread>
 #include <unistd.h>
+
+Line* line_to_server;
 
 std::shared_ptr<Conn> CreateTransferConnection(Line& line, Plan const& plan,
                                                Options const& options) {
@@ -30,6 +33,10 @@ std::shared_ptr<Conn> CreateTransferConnection(Line& line, Plan const& plan,
 
     case Protocol::kRawSocket:
       return RawSocketConn::Create(line.Address(), options.interface);
+
+    case Protocol::kUDP: {
+      return UdpConn::Create(line.Address());
+    }
   }
 }
 
@@ -69,6 +76,17 @@ void StartServer(Options options) {
             auto connection =
                 CreateTransferConnection(line, test.plan, options);
 
+            // Run waiting thread for test end
+            std::thread([connection, &line, &test]() {
+              try {
+                line.ReadStopTest();
+              } catch (std::exception& e) {
+                fmt::println("error: {}", e.what());
+              }
+              test.Stop();
+              connection->Shutdown();
+            }).detach();
+
             StartTest(test, *connection, options);
             line.WriteStopTest();
           } catch (std::exception& e) {
@@ -82,6 +100,7 @@ void StartServer(Options options) {
 
 void StartClient(Options const& options) {
   auto line = LineClient::Connect(options.address);
+  line_to_server = &line;
 
   // Build plan and start test
   Plan plan;
@@ -95,18 +114,29 @@ void StartClient(Options const& options) {
   // Wait for confirmed plan
   auto confirm_plan = line.ReadConfirmPlan();
 
-  // Create connection for transfer
-  auto connection = CreateTransferConnection(line, confirm_plan.plan, options);
+  try {
+    // Create connection for transfer
+    auto connection =
+        CreateTransferConnection(line, confirm_plan.plan, options);
 
-  // Run waiting thread for test end
-  std::thread([connection, &line]() {
-    line.ReadStopTest();
-    connection->Shutdown();
-  }).detach();
+    // Run waiting thread for test end
+    std::thread([connection, &line]() {
+      line.ReadStopTest();
+      connection->Shutdown();
+    }).detach();
 
-  // Start test
-  Test test(confirm_plan.id, confirm_plan.plan);
-  StartTest(test, *connection, options);
+    signal(SIGINT, [](int) {
+      if (line_to_server) line_to_server->WriteStopTest();
+      exit(0);
+    });
+
+    // Start test
+    Test test(confirm_plan.id, confirm_plan.plan);
+    StartTest(test, *connection, options);
+  } catch (...) {
+    line.WriteStopTest();
+    throw;
+  }
 }
 
 void Program(int argc, char** argv) {

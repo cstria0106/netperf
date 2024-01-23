@@ -16,13 +16,13 @@ void Sender::Start(Conn& conn, Test& test) {
            ToSeconds(now) * test.plan.bandwidth > tx_bits_) {
       int sent = conn.Send(buffer.data(), buffer.size());
       test.tx += sent;
+      test.tx_packets++;
       tx_bits_ += sent * 8;
       if (test.Finished()) {
         break;
       }
     }
 
-    std::this_thread::sleep_for(Miliseconds(100));
     if (test.Finished()) {
       break;
     }

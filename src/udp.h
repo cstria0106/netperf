@@ -8,18 +8,17 @@
 #include <netinet/in.h>
 #include <memory>
 
-class RawSocketConn : public Conn {
+class UdpConn : public Conn {
   Fd fd_;
   sockaddr_in destination_;
   bool finished_ = false;
 
  public:
-  RawSocketConn(sockaddr_in destination, char* interface);
+  explicit UdpConn(sockaddr_in destination);
   int Send(char const* data, int size) override;
   int Receive(char data[], int size, int& skip_hint) override;
   int AdditionalBufferSize() override;
 
-  static std::shared_ptr<RawSocketConn> Create(sockaddr_in destination,
-                                               char* interface);
+  static std::shared_ptr<UdpConn> Create(sockaddr_in destination);
   void Shutdown() override;
 };

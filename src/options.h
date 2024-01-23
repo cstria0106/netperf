@@ -2,6 +2,7 @@
 
 #include "fmt/core.h"
 #include "test.h"
+#include "util.h"
 #include <cstring>
 #include <stdexcept>
 #include <unistd.h>
@@ -16,11 +17,13 @@ struct Options {
   int bandwidth;
   int block_len;
   char* interface;
+  int buffer_size;
 };
 
 inline Options ParseOptions(int argc, char** argv) {
   Options options;
   options.server = false;
+  options.client = false;
   options.protocol = Protocol::kTCP;
   options.address = nullptr;
   options.server = false;
@@ -30,8 +33,8 @@ inline Options ParseOptions(int argc, char** argv) {
   options.bandwidth = 0;
 
   opterr = 0;
-  char option;
-  while ((option = getopt(argc, argv, "sc:rt:l:b:i:p:")) != -1) {
+  signed char option;
+  while ((option = getopt(argc, argv, "sc:rt:l:b:i:p:w:")) != -1) {
     switch (option) {
       case 's':
         options.server = true;
@@ -50,10 +53,13 @@ inline Options ParseOptions(int argc, char** argv) {
         options.block_len = atoi(optarg);
         break;
       case 'b':
-        options.bandwidth = atoi(optarg) * 1000 * 1000;  // Mbit
+        options.bandwidth = ParseBytes(optarg);
         break;
       case 'i':
         options.interface = optarg;
+        break;
+      case 'w':
+        options.buffer_size = ParseBytes(optarg);
         break;
       case 'p':
         char name[10];
@@ -65,6 +71,8 @@ inline Options ParseOptions(int argc, char** argv) {
           options.protocol = Protocol::kTCP;
         } else if (strcmp(name, "raw") == 0) {
           options.protocol = Protocol::kRawSocket;
+        } else if (strcmp(name, "udp") == 0) {
+          options.protocol = Protocol::kUDP;
         } else {
           throw std::runtime_error(fmt::format("unknown protocol: {}", name));
         }

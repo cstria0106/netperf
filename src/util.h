@@ -1,5 +1,6 @@
 #pragma once
 
+#include "fmt/format.h"
 #include <sys/time.h>
 #include <chrono>
 #include <cstdint>
@@ -12,12 +13,35 @@ using Seconds = std::chrono::seconds;
 using Microseconds = std::chrono::microseconds;
 using Miliseconds = std::chrono::milliseconds;
 inline double ToSeconds(Duration const& duration) {
-  return std::chrono::duration_cast<Seconds>(duration).count();
+  return std::chrono::duration_cast<Microseconds>(duration).count() / 1000000.0;
 }
 
 inline Time Now() { return std::chrono::system_clock::now(); }
 
-inline std::string HumanSize(uint64_t bytes) {
+inline uint64_t ParseBytes(std::string const& str) {
+  uint64_t unit_size = 1;
+  // check string is number except last character
+  auto not_numeric = str.find_first_not_of("0123456789");
+  if (not_numeric != str.size() - 1 && not_numeric != std::string::npos) {
+    throw std::runtime_error(fmt::format("invalid unit: {}", str));
+  }
+
+  if (str.ends_with("K") || str.ends_with("k")) {
+    unit_size = 1000;
+  } else if (str.ends_with("M") || str.ends_with("m")) {
+    unit_size = 1000 * 1000;
+  } else if (str.ends_with("G") || str.ends_with("g")) {
+    unit_size = 1000 * 1000 * 1000;
+  } else if (not_numeric == std::string::npos) {
+    return std::stoull(str);
+  } else {
+    throw std::runtime_error(fmt::format("invalid unit: {}", str));
+  }
+
+  return std::stoull(str.substr(0, str.size() - 1)) * unit_size;
+}
+
+inline std::string FormatBytes(uint64_t bytes) {
   char const* suffix[] = {"", "K", "M", "G", "T"};
   char length = sizeof(suffix) / sizeof(suffix[0]);
 

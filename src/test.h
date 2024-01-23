@@ -11,7 +11,8 @@
 
 enum class Protocol {
   kTCP = 0,
-  kRawSocket = 1,
+  kUDP = 1,
+  kRawSocket = 2,
 };
 
 struct Plan {
@@ -32,13 +33,20 @@ struct Test {
   int id;
   Time start_time;
   Plan plan;
+  bool manually_stopped = false;
 
   bool started;
   uint64_t rx;
   uint64_t tx;
+  uint64_t rx_packets;
+  uint64_t tx_packets;
+
+  void Stop() { manually_stopped = true; }
 
   Duration Duration() const { return Now() - start_time; }
-  bool Finished() const { return Duration() >= Seconds(plan.time); }
+  bool Finished() const {
+    return manually_stopped || Duration() >= Seconds(plan.time);
+  }
 
   double RxBandwidth() const {
     return static_cast<double>(rx - last_rx_) * 8 /
@@ -51,10 +59,12 @@ struct Test {
   }
 
   void Report() {
-    fmt::println("rx: {}Bytes ({}bits/sec)", HumanSize(rx),
-                 HumanSize(RxBandwidth()));
-    fmt::println("tx: {}Bytes ({}bits/sec)", HumanSize(tx),
-                 HumanSize(TxBandwidth()));
+    fmt::println("time: {}s", ToSeconds(Duration()));
+    fmt::println("rx: {}Bytes ({}bits/sec)", FormatBytes(rx),
+                 FormatBytes(RxBandwidth()));
+    fmt::println("tx: {}Bytes ({}bits/sec)", FormatBytes(tx),
+                 FormatBytes(TxBandwidth()));
+    fmt::println("tx packets: {}, rx packets: {}", tx_packets, rx_packets);
     fmt::println("");
     last_report_time_ = Now();
     last_tx_ = tx;
@@ -67,6 +77,8 @@ struct Test {
     this->started = false;
     this->rx = 0;
     this->tx = 0;
+    this->rx_packets = 0;
+    this->tx_packets = 0;
     this->last_rx_ = 0;
     this->last_tx_ = 0;
   }

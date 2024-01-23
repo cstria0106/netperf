@@ -29,6 +29,9 @@ int RawSocketConn::Send(char const* data, int size) {
   if ((sent = sendto(fd_.Value(), data, size, MSG_NOSIGNAL,
                      reinterpret_cast<sockaddr*>(&destination_),
                      sizeof(destination_))) < 0) {
+    if (errno == ENOBUFS) {
+      return 0;
+    }
     throw StandardError("failed to send");
   }
   return sent;
@@ -38,7 +41,8 @@ int n = 0;
 int RawSocketConn::Receive(char data[], int size, int& skip_hint) {
   int received;
   n++;
-  if ((received = recv(fd_.Value(), data, size, MSG_NOSIGNAL)) < 0) {
+  received = recv(fd_.Value(), data, size, MSG_NOSIGNAL);
+  if (received < 0) {
     fmt::println("failed to receive: {}", strerror(errno));
   }
   if (received == 0) {

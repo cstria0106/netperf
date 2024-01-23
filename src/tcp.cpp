@@ -29,7 +29,8 @@ std::pair<Fd, sockaddr_in> Tcp::Connect(char* ip, uint16_t port) {
 
 std::pair<Fd, sockaddr_in> Tcp::Connect(sockaddr_in address) {
   int raw_fd;
-  if ((raw_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+  raw_fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (raw_fd < 0) {
     throw StandardError("failed to create tcp socket");
   }
 
@@ -49,7 +50,8 @@ std::pair<Fd, sockaddr_in> Tcp::Connect(sockaddr_in address) {
 
 Fd Tcp::Listen(int port) {
   int raw_fd;
-  if ((raw_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+  raw_fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (raw_fd < 0) {
     throw StandardError("failed to create tcp socket");
   }
   auto fd = Fd(raw_fd);
