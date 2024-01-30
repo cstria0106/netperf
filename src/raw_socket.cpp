@@ -1,6 +1,7 @@
 #include "raw_socket.h"
 #include "fmt/base.h"
 #include "fmt/format.h"
+#include "test.h"
 #include "values.h"
 #include <asm-generic/socket.h>
 #include <linux/ip.h>
@@ -9,13 +10,15 @@
 #include <memory>
 #include <stdexcept>
 
-RawSocketConn::RawSocketConn(sockaddr_in destination, char* interface)
+RawSocketConn::RawSocketConn(sockaddr_in destination, char const* interface,
+                             Plan const& plan)
     : destination_(destination) {
-  int fd;
-  if ((fd = socket(AF_INET, SOCK_RAW, kRawProto)) < 0) {
+  int raw_fd = socket(AF_INET, SOCK_RAW, kRawProto);
+  if (raw_fd < 0) {
     throw StandardError("failed to create raw socket");
   };
-  fd_ = Fd(fd);
+  fd_ = Fd(raw_fd);
+  fd_.SetSocketOptions(plan);
 
   if (setsockopt(fd_.Value(), SOL_SOCKET, SO_BINDTODEVICE, interface,
                  sizeof(interface)) < 0) {
@@ -37,17 +40,12 @@ int RawSocketConn::Send(char const* data, int size) {
   return sent;
 }
 
-int n = 0;
 int RawSocketConn::Receive(char data[], int size, int& skip_hint) {
-  int received;
-  n++;
-  received = recv(fd_.Value(), data, size, MSG_NOSIGNAL);
+  int received = recv(fd_.Value(), data, size, MSG_NOSIGNAL);
   if (received < 0) {
     fmt::println("failed to receive: {}", strerror(errno));
   }
-  if (received == 0) {
-    return -1;
-  }
+  if (received == 0) return -1;
   skip_hint = sizeof(iphdr);
   return received;
 }
@@ -55,7 +53,8 @@ int RawSocketConn::Receive(char data[], int size, int& skip_hint) {
 int RawSocketConn::AdditionalBufferSize() { return sizeof(iphdr); }
 
 std::shared_ptr<RawSocketConn> RawSocketConn::Create(sockaddr_in address,
-                                                     char* interface) {
-  return std::make_shared<RawSocketConn>(address, interface);
+                                                     char const* interface,
+                                                     Plan const& plan) {
+  return std::make_shared<RawSocketConn>(address, interface, plan);
 }
 void RawSocketConn::Shutdown() { shutdown(fd_.Value(), SHUT_RDWR); }

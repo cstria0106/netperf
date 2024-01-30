@@ -21,6 +21,9 @@ struct Plan {
   int bandwidth;
   bool server_sends;
   Protocol protocol;
+  int window_size;
+  bool no_delay;
+  bool zero_copy;
 };
 
 struct Test {
@@ -58,17 +61,25 @@ struct Test {
            ToSeconds(Now() - last_report_time_);
   }
 
-  void Report() {
-    fmt::println("time: {}s", ToSeconds(Duration()));
-    fmt::println("rx: {}Bytes ({}bits/sec)", FormatBytes(rx),
-                 FormatBytes(RxBandwidth()));
-    fmt::println("tx: {}Bytes ({}bits/sec)", FormatBytes(tx),
-                 FormatBytes(TxBandwidth()));
-    fmt::println("tx packets: {}, rx packets: {}", tx_packets, rx_packets);
-    fmt::println("");
-    last_report_time_ = Now();
-    last_tx_ = tx;
-    last_rx_ = rx;
+  void Report(bool finish = false) {
+    if (finish) {
+      fmt::println("time: {}s", ToSeconds(Duration()));
+      fmt::println("rx: {}Bytes", FormatBytes(rx));
+      fmt::println("tx: {}Bytes", FormatBytes(tx));
+      fmt::println("tx packets: {}, rx packets: {}", tx_packets, rx_packets);
+      fmt::println("");
+    } else {
+      fmt::println("time: {}s", ToSeconds(Duration()));
+      fmt::println("rx: {}Bytes ({}bits/sec)", FormatBytes(rx),
+                   FormatBytes(RxBandwidth()));
+      fmt::println("tx: {}Bytes ({}bits/sec)", FormatBytes(tx),
+                   FormatBytes(TxBandwidth()));
+      fmt::println("tx packets: {}, rx packets: {}", tx_packets, rx_packets);
+      fmt::println("");
+      last_report_time_ = Now();
+      last_tx_ = tx;
+      last_rx_ = rx;
+    }
   }
 
   explicit Test(int id, Plan plan) {

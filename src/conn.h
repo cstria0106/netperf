@@ -1,5 +1,6 @@
 #pragma once
 
+#include "fd.h"
 class Conn {
  public:
   virtual int Send(char const* data, int size) = 0;

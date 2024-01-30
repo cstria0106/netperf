@@ -64,6 +64,9 @@ class Line {
     plan.bandwidth = ReadLong();
     plan.protocol = static_cast<Protocol>(ReadShort());
     plan.server_sends = ReadByte() != 0;
+    plan.window_size = ReadLong();
+    plan.no_delay = ReadByte() != 0;
+    plan.zero_copy = ReadByte() != 0;
     return plan;
   }
 
@@ -73,6 +76,9 @@ class Line {
     WriteLong(plan.bandwidth);
     WriteShort(static_cast<uint16_t>(plan.protocol));
     WriteByte(plan.server_sends ? 1 : 0);
+    WriteLong(plan.window_size);
+    WriteByte(plan.no_delay ? 1 : 0);
+    WriteByte(plan.zero_copy ? 1 : 0);
   }
 
  public:

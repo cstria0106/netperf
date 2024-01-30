@@ -10,7 +10,8 @@
 #include <memory>
 #include <stdexcept>
 
-UdpConn::UdpConn(sockaddr_in destination) : destination_(destination) {
+UdpConn::UdpConn(sockaddr_in destination, Plan const& plan)
+    : destination_(destination) {
   int raw_fd;
   raw_fd = socket(AF_INET, SOCK_DGRAM, 0);
   if (raw_fd < 0) {
@@ -18,6 +19,7 @@ UdpConn::UdpConn(sockaddr_in destination) : destination_(destination) {
   };
 
   fd_ = Fd(raw_fd);
+  fd_.SetSocketOptions(plan);
 
   sockaddr_in address;
   address.sin_port = htons(kUdpPort);
@@ -49,17 +51,16 @@ int UdpConn::Receive(char data[], int size, int& skip_hint) {
   if (received < 0) {
     fmt::println("failed to receive: {}", strerror(errno));
   }
-  if (received == 0) {
-    return -1;
-  }
+  if (received == 0) return -1;
   skip_hint = 0;
   return received;
 }
 
 int UdpConn::AdditionalBufferSize() { return 0; }
 
-std::shared_ptr<UdpConn> UdpConn::Create(sockaddr_in destination) {
+std::shared_ptr<UdpConn> UdpConn::Create(sockaddr_in destination,
+                                         Plan const& plan) {
   destination.sin_port = htons(kUdpPort);
-  return std::make_shared<UdpConn>(destination);
+  return std::make_shared<UdpConn>(destination, plan);
 }
 void UdpConn::Shutdown() { shutdown(fd_.Value(), SHUT_RDWR); }

@@ -14,11 +14,12 @@ class UdpConn : public Conn {
   bool finished_ = false;
 
  public:
-  explicit UdpConn(sockaddr_in destination);
+  explicit UdpConn(sockaddr_in destination, Plan const& plan);
   int Send(char const* data, int size) override;
   int Receive(char data[], int size, int& skip_hint) override;
   int AdditionalBufferSize() override;
 
-  static std::shared_ptr<UdpConn> Create(sockaddr_in destination);
+  static std::shared_ptr<UdpConn> Create(sockaddr_in destination,
+                                         Plan const& plan);
   void Shutdown() override;
 };

@@ -16,8 +16,10 @@ struct Options {
   int time;
   int bandwidth;
   int block_len;
-  char* interface;
-  int buffer_size;
+  char const* interface;
+  int window_size;
+  bool no_delay;
+  bool zero_copy;
 };
 
 inline Options ParseOptions(int argc, char** argv) {
@@ -31,10 +33,13 @@ inline Options ParseOptions(int argc, char** argv) {
   options.time = 10;
   options.block_len = 1000;
   options.bandwidth = 0;
+  options.interface = "lo";
+  options.window_size = 0;
+  options.no_delay = false;
 
   opterr = 0;
   signed char option;
-  while ((option = getopt(argc, argv, "sc:rt:l:b:i:p:w:")) != -1) {
+  while ((option = getopt(argc, argv, "sc:Rt:l:b:ur:w:Nz")) != -1) {
     switch (option) {
       case 's':
         options.server = true;
@@ -43,39 +48,33 @@ inline Options ParseOptions(int argc, char** argv) {
         options.client = true;
         options.address = optarg;
         break;
-      case 'r':
+      case 'R':
         options.receiver = true;
         break;
       case 't':
         options.time = atoi(optarg);
         break;
       case 'l':
-        options.block_len = atoi(optarg);
+        options.block_len = ParseBytes(optarg);
         break;
       case 'b':
         options.bandwidth = ParseBytes(optarg);
         break;
-      case 'i':
+      case 'w':
+        options.window_size = ParseBytes(optarg);
+        break;
+      case 'u':
+        options.protocol = Protocol::kUDP;
+        break;
+      case 'r':
+        options.protocol = Protocol::kRawSocket;
         options.interface = optarg;
         break;
-      case 'w':
-        options.buffer_size = ParseBytes(optarg);
+      case 'z':
+        options.zero_copy = true;
         break;
-      case 'p':
-        char name[10];
-        strcpy(name, optarg);
-        for (int i = 0; i < strlen(name); i++) {
-          name[i] = tolower(name[i]);
-        }
-        if (strcmp(name, "tcp") == 0) {
-          options.protocol = Protocol::kTCP;
-        } else if (strcmp(name, "raw") == 0) {
-          options.protocol = Protocol::kRawSocket;
-        } else if (strcmp(name, "udp") == 0) {
-          options.protocol = Protocol::kUDP;
-        } else {
-          throw std::runtime_error(fmt::format("unknown protocol: {}", name));
-        }
+      case 'N':
+        options.no_delay = true;
         break;
       default:
         throw std::runtime_error(

@@ -12,6 +12,7 @@
 #include "tcp.h"
 #include "test.h"
 #include "udp.h"
+#include "util.h"
 #include <fmt/core.h>
 #include <condition_variable>
 #include <csignal>
@@ -28,14 +29,14 @@ std::shared_ptr<Conn> CreateTransferConnection(Line& line, Plan const& plan,
                                                Options const& options) {
   switch (plan.protocol) {
     case Protocol::kTCP:
-      if (options.server) return TcpConn::CreateServerSide(line);
-      if (options.client) return TcpConn::CreateClientSide(line);
+      if (options.server) return TcpConn::CreateServerSide(line, plan);
+      if (options.client) return TcpConn::CreateClientSide(line, plan);
 
     case Protocol::kRawSocket:
-      return RawSocketConn::Create(line.Address(), options.interface);
+      return RawSocketConn::Create(line.Address(), options.interface, plan);
 
     case Protocol::kUDP: {
-      return UdpConn::Create(line.Address());
+      return UdpConn::Create(line.Address(), plan);
     }
   }
 }
@@ -57,6 +58,7 @@ void StartTest(Test& test, Conn& connection, Options const& options) {
   }
 
   fmt::println("test {} finished", test.id);
+  test.Report(true);
 }
 
 void StartServer(Options options) {
@@ -81,7 +83,6 @@ void StartServer(Options options) {
               try {
                 line.ReadStopTest();
               } catch (std::exception& e) {
-                fmt::println("error: {}", e.what());
               }
               test.Stop();
               connection->Shutdown();
@@ -109,6 +110,9 @@ void StartClient(Options const& options) {
   plan.block_len = options.block_len;
   plan.bandwidth = options.bandwidth;
   plan.server_sends = options.client && options.receiver;
+  plan.window_size = options.window_size;
+  plan.no_delay = options.no_delay;
+  plan.zero_copy = options.zero_copy;
   line.WriteStartTest(plan);
 
   // Wait for confirmed plan
@@ -122,6 +126,10 @@ void StartClient(Options const& options) {
     // Run waiting thread for test end
     std::thread([connection, &line]() {
       line.ReadStopTest();
+
+      // Wait for buffered data
+      std::this_thread::sleep_for(Miliseconds(1000));
+
       connection->Shutdown();
     }).detach();
 
