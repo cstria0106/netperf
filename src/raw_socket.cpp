@@ -1,4 +1,5 @@
 #include "raw_socket.h"
+#include "error.h"
 #include "fmt/base.h"
 #include "fmt/format.h"
 #include "test.h"
@@ -41,16 +42,28 @@ int RawSocketConn::Send(char const* data, int size) {
 }
 
 int RawSocketConn::Receive(char data[], int size, int& skip_hint) {
-  int received = recv(fd_.Value(), data, size, MSG_NOSIGNAL);
+  uint8_t header[sizeof(iphdr)];
+  iovec iov[2];
+  msghdr msg;
+  memset(&msg, 0, sizeof(msg));
+  memset(iov, 0, sizeof(iov));
+  iov[0].iov_base = header;
+  iov[0].iov_len = sizeof(header);
+  iov[1].iov_base = data;
+  iov[1].iov_len = size;
+  msg.msg_iov = iov;
+  msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
+
+  int received = recvmsg(fd_.Value(), &msg, MSG_NOSIGNAL);
   if (received < 0) {
     fmt::println("failed to receive: {}", strerror(errno));
   }
   if (received == 0) return -1;
-  skip_hint = sizeof(iphdr);
-  return received;
+  skip_hint = 0;
+  return received - sizeof(header);
 }
 
-int RawSocketConn::AdditionalBufferSize() { return sizeof(iphdr); }
+int RawSocketConn::AdditionalBufferSize() { return 0; }
 
 std::shared_ptr<RawSocketConn> RawSocketConn::Create(sockaddr_in address,
                                                      char const* interface,

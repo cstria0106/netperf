@@ -72,10 +72,11 @@ Fd Tcp::Listen(int port, std::optional<Plan> const& plan) {
   }
 
   // disable NAGLE
-  if (setsockopt(fd.Value(), IPPROTO_TCP, TCP_NODELAY, &optval,
-                 sizeof(optval)) < 0) {
-    throw StandardError("failed to set TCP_NODELAY");
-  }
+  // if (setsockopt(fd.Value(), IPPROTO_TCP, TCP_NODELAY, &optval,
+  //                sizeof(optval)) < 0) {
+  //   throw StandardError("failed to set TCP_NODELAY");
+  // }
+
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = htonl(INADDR_ANY);
